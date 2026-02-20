@@ -30,4 +30,15 @@
     <name>datanucleus.schema.autoCreateTables</name>
     <value>true</value>
   </property>
+  <!-- Disable Calcite-based CBO to avoid binary incompatibility between Hive 2.3.9's
+       optimizer classes and the shaded LinkedIn Calcite fork (Guava type signature mismatch) -->
+  <property>
+    <name>hive.cbo.enable</name>
+    <value>false</value>
+  </property>
+  <!-- Allow ALTER TABLE column type changes for schema evolution tests (Hive 2.3.9 default is true) -->
+  <property>
+    <name>hive.metastore.disallow.incompatible.col.type.changes</name>
+    <value>false</value>
+  </property>
 </configuration>

@@ -1,6 +1,7 @@
 plugins {
-  id 'org.springframework.boot' version '2.4.0'
-  id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+  // Spring Boot 2.7.18: upgraded from 2.4.0 for Java 17 support (class file version 61)
+  id 'org.springframework.boot' version '2.7.18'
+  id 'io.spring.dependency-management' version '1.1.4'
   id 'java'
 }
 
@@ -10,10 +11,6 @@ configurations {
     it.outgoing.artifacts.removeIf { it.buildDependencies.getDependencies(null).contains(jar) }
     it.outgoing.artifact(bootJar)
   }
-}
-
-repositories {
-  maven { url "http://conjars.org/repo" }
 }
 
 // Exclusions required to fix issue of multiple bindings on the class path
@@ -30,12 +27,14 @@ dependencies {
   implementation project(':coral-spark')
   implementation project(':coral-visualization')
 
-  implementation('org.apache.hive:hive-exec:1.2.2:core') {
+  // Use centralized Hive version from dependencies.gradle instead of hardcoded version
+  implementation(deps.'hive'.'hive-exec-core') {
     exclude group: 'org.apache.calcite', module: 'calcite-core'
+    exclude group: 'org.apache.calcite.avatica', module: 'avatica-core'
   }
-  implementation 'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.0'
+  implementation deps.'hadoop'.'hadoop-mapreduce-client-core'
   implementation 'org.springframework.boot:spring-boot-starter-web'
   implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
   // Need to add this to avoid class not found issue while setting up local metastore
-  implementation 'com.esotericsoftware.kryo:kryo:2.22'
+  implementation deps.'kryo'
 }

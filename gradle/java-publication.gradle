@@ -1,4 +1,5 @@
-apply plugin: "java"
+// Use java-library plugin for 'api' configuration support (Gradle 7+ migration from 'compile')
+apply plugin: "java-library"
 
 def licenseSpec = copySpec {
   from project.rootDir
@@ -6,13 +7,13 @@ def licenseSpec = copySpec {
 }
 
 task sourcesJar(type: Jar, dependsOn: classes) {
-  classifier 'sources'
+  archiveClassifier.set('sources')
   from sourceSets.main.allSource
   with licenseSpec
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {
-  classifier 'javadoc'
+  archiveClassifier.set('javadoc')
   from tasks.javadoc
   with licenseSpec
 }

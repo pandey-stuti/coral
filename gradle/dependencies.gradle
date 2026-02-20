@@ -4,7 +4,8 @@ def versions = [
   'graph-vis': '0.18.1',
   'gson': '2.9.0',
   'hadoop': '2.7.0',
-  'hive': '1.2.2',
+  // Hive 2.3.9: upgraded from 1.2.2 for Java 17 compatibility and bug fixes
+  'hive': '2.3.9',
   'linkedin-iceberg': '1.2.0.10',
   'ivy': '2.5.1',
   'jetbrains': '16.0.2',

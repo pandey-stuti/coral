@@ -1,8 +1,19 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ConfigureShadowRelocation
+apply plugin: "java"
 apply plugin: "com.github.johnrengelman.shadow"
+
+// In Gradle 7+, compileOnly is not resolvable. Create a separate resolvable configuration
+// for the shadow plugin to package the trino-parser classes.
+configurations {
+  shadowDeps {
+    canBeResolved = true
+    canBeConsumed = false
+  }
+}
 
 dependencies {
   compileOnly 'io.trino:trino-parser:355'
+  shadowDeps 'io.trino:trino-parser:355'
 }
 
 task relocateShadowJar(type: ConfigureShadowRelocation) {
@@ -12,7 +23,7 @@ task relocateShadowJar(type: ConfigureShadowRelocation) {
 
 shadowJar {
   configurations = [
-    project.configurations.compileOnly
+    project.configurations.shadowDeps
   ]
   dependsOn(relocateShadowJar)
 }
@@ -20,5 +31,5 @@ shadowJar {
 // Rename shadow jar to original artifact name, so that 'coral-trino-parser-x.x.x.jar' itself is the shadow jar
 jar {
   enabled = false
-  dependsOn(shadowJar { classifier = null })
+  dependsOn(shadowJar { archiveClassifier.set('') })
 }

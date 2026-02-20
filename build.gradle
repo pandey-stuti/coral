@@ -4,21 +4,20 @@
 
 buildscript {
   repositories {
-    jcenter()
-    maven {
-      url "https://plugins.gradle.org/m2/"
-    }
+    mavenCentral()
+    gradlePluginPortal()
   }
   dependencies {
     classpath "io.github.gradle-nexus:publish-plugin:1.1.0"
     classpath "org.shipkit:shipkit-auto-version:1.1.1"
     classpath "org.shipkit:shipkit-changelog:1.1.10"
-    classpath "com.github.jengelman.gradle.plugins:shadow:6.1.0"
+    // Shadow plugin 7.1.2 for Gradle 7.x compatibility
+    classpath "gradle.plugin.com.github.johnrengelman:shadow:7.1.2"
   }
 }
 
 plugins {
-  id "com.diffplug.spotless" version "5.9.0"
+  id "com.diffplug.spotless" version "6.11.0"
 }
 
 apply from: "gradle/shipkit.gradle"
@@ -36,9 +35,12 @@ allprojects {
     maven {
       url 'https://linkedin.jfrog.io/artifactory/avro-util/'
     }
-    maven {
-      url 'https://linkedin.bintray.com/maven/'
-    }
+  }
+
+  // Exclude pentaho-aggdesigner which is a transitive dependency of hive-exec 2.3.9 via
+  // Calcite CBO. Not needed since Coral uses the LinkedIn Calcite fork instead.
+  configurations.all {
+    exclude group: 'org.pentaho', module: 'pentaho-aggdesigner-algorithm'
   }
 
   spotless {
@@ -52,20 +54,62 @@ allprojects {
       target '**/*.md'
       targetExclude 'docs/release-notes.md'
       endWithNewline()
-      // Disabling Prettier since it causes TravisCI to barf
-      // prettier()
     }
   }
 }
 
+// Java 17 --add-opens JVM args required by Hive 2.3.9, Spark, Derby, and DataNucleus
+// for reflective access that is restricted by the Java module system
+def java17TestJvmArgs = [
+  '--add-opens=java.base/java.lang=ALL-UNNAMED',
+  '--add-opens=java.base/java.lang.reflect=ALL-UNNAMED',
+  '--add-opens=java.base/java.lang.invoke=ALL-UNNAMED',
+  '--add-opens=java.base/java.io=ALL-UNNAMED',
+  '--add-opens=java.base/java.net=ALL-UNNAMED',
+  '--add-opens=java.base/java.util=ALL-UNNAMED',
+  '--add-opens=java.base/java.util.concurrent=ALL-UNNAMED',
+  '--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED',
+  '--add-opens=java.base/java.nio=ALL-UNNAMED',
+  '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED',
+  '--add-opens=java.base/java.math=ALL-UNNAMED',
+  '--add-opens=java.base/java.text=ALL-UNNAMED',
+  '--add-opens=java.base/sun.security.provider=ALL-UNNAMED',
+  '--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED',
+]
+
 subprojects {
   plugins.withType(JavaPlugin) {
+    // Configure Java 17.0.5-msft toolchain for compilation and test execution
+    java {
+      toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+      }
+    }
+
     dependencies {
-      testCompile deps.'testing'
+      testImplementation deps.'testing'
+
+      // DataNucleus dependencies required by Hive 2.3.9 metastore under Java 17
+      testRuntimeOnly 'org.datanucleus:datanucleus-api-jdo:4.2.4'
+      testRuntimeOnly 'org.datanucleus:datanucleus-core:4.1.17'
+      testRuntimeOnly 'org.datanucleus:datanucleus-rdbms:4.1.19'
+      testRuntimeOnly 'javax.jdo:jdo-api:3.0.1'
+
+      // LinkedIn Calcite Druid adapter: needed at runtime because Hive 2.3.9's CalcitePlanner
+      // and LinkedIn Calcite's RelFieldTrimmer reference DruidQuery via reflection.
+      // Exclude calcite-core to avoid classpath conflict with the shaded calcite-core jar.
+      testRuntimeOnly('com.linkedin.calcite:calcite-druid:1.21.0.265') {
+        exclude group: 'com.linkedin.calcite', module: 'calcite-core'
+        exclude group: 'com.linkedin.calcite', module: 'calcite-linq4j'
+      }
     }
-    test {
+
+    // Apply --add-opens to all Test tasks (unit tests, integration tests, etc.)
+    tasks.withType(Test).configureEach {
       useTestNG()
+      jvmArgs java17TestJvmArgs
     }
+
     spotless {
       java {
         importOrder('java', 'javax', 'com', 'org', 'com.linkedin.coral', '\\#')
@@ -77,5 +121,9 @@ subprojects {
   }
 
   apply from: "${rootDir}/gradle/dependencies.gradle"
-  apply from: "${rootDir}/gradle/java-publication.gradle"
+
+  // Skip java-publication for shading modules which have custom jar/shadow publication
+  if (!project.path.startsWith(':shading')) {
+    apply from: "${rootDir}/gradle/java-publication.gradle"
+  }
 }
