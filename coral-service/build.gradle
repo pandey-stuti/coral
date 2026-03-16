@@ -4,6 +4,12 @@ plugins {
   id 'java'
 }
 
+// Spring Boot 3.3.5 requires Java 17 - override the root project's Java 11 target
+java {
+  sourceCompatibility = JavaVersion.VERSION_17
+  targetCompatibility = JavaVersion.VERSION_17
+}
+
 // Ref: https://docs.gradle.org/current/userguide/upgrading_version_6.html?_ga=2.55190571.1487781572.1677273009-780026602.1675378719#publishing_spring_boot_applications
 configurations {
   [apiElements, runtimeElements].each {
